@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model TodoList {
+  id          Int      @id @default(autoincrement())
+  title       String?
+  assigne     String?  // Comma-separated assignees like Laravel
+  dueDate     DateTime @map("due_date")
+  timeTracked Int      @default(0) @map("time_tracked")
+  status      Status   @default(pending)
+  priority    Priority?
+  type        Type?
+  estimatedSp Int?     @map("estimated_sp")
+  actualSp    Int?     @map("actual_sp")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("todo_lists")
+}
+
+enum Status {
+  pending     @map("pending")
+  open        @map("open")
+  in_progress @map("in_progress")
+  completed   @map("completed")
+  stuck       @map("stuck")
+}
+
+enum Priority {
+  low         @map("low")
+  medium      @map("medium")
+  high        @map("high")
+  critical    @map("critical")
+  best_effort @map("best_effort")
+}
+
+enum Type {
+  feature_enhancements @map("feature_enhancements")
+  other                @map("other")
+  bug                  @map("bug")
+}
