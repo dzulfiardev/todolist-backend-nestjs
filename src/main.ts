@@ -10,6 +10,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'https://todolist.dzulfikardev.site',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
