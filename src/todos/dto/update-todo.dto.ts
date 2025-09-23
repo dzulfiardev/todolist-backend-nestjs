@@ -3,6 +3,7 @@ import { CreateTodoDto } from './create-todo.dto';
 import { IsOptional, IsString, IsDateString, IsInt, IsEnum, Min, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Status, Priority, Type } from '../../common/enums';
+import { IsFutureDate } from '../../common/decorators';
 
 export class UpdateTodoDto {
   @ApiProperty({ description: 'Task title', required: false, maxLength: 255 })
@@ -15,9 +16,19 @@ export class UpdateTodoDto {
   @IsOptional()
   developer?: string | string[];
 
-  @ApiProperty({ description: 'Due date', required: false, type: String, format: 'date' })
+  @ApiProperty({ 
+    description: 'Due date (must be today or future date)', 
+    required: false, 
+    type: String, 
+    format: 'date',
+    example: '2025-09-24'
+  })
   @IsOptional()
   @IsDateString()
+  @IsFutureDate({ 
+    message: 'Due date cannot be in the past. Please choose today or a future date.',
+    allowToday: true 
+  })
   date?: string;
 
   @ApiProperty({ enum: Status, description: 'Task status', required: false })

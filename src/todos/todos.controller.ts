@@ -29,7 +29,6 @@ export class TodosController {
   @ApiResponse({ status: 422, description: 'Validation failed' })
   @ApiResponse({ status: 500, description: 'Failed to create todo list' })
   create(@Body() createTodoDto: CreateTodoDto) {
-    console.log('Received createTodoDto:', createTodoDto);
     return this.todosService.create(createTodoDto);
   }
 
