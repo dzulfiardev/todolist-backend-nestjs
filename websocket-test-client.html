@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TodoList WebSocket Test Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .events { height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .event { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; }
+        .event.todo-created { border-left-color: #28a745; }
+        .event.todo-updated { border-left-color: #ffc107; }
+        .event.todo-deleted { border-left-color: #dc3545; }
+        .controls { margin: 10px 0; }
+        .controls button { margin: 5px; padding: 8px 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TodoList WebSocket Test Client</h1>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="controls">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+            <button onclick="joinTodoRoom()">Join Todo Room</button>
+            <button onclick="leaveTodoRoom()">Leave Todo Room</button>
+            <button onclick="getTodoList()">Get Todo List</button>
+            <button onclick="pingServer()">Ping Server</button>
+            <button onclick="clearEvents()">Clear Events</button>
+        </div>
+
+        <h3>Real-time Events:</h3>
+        <div id="events" class="events"></div>
+        
+        <h3>API Test Actions:</h3>
+        <div class="controls">
+            <button onclick="createTestTodo()">Create Test Todo</button>
+            <button onclick="updateRandomTodo()">Update Random Todo</button>
+            <button onclick="deleteRandomTodo()">Delete Random Todo</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        const statusDiv = document.getElementById('status');
+        const eventsDiv = document.getElementById('events');
+        
+        function updateStatus(connected, message = '') {
+            statusDiv.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            statusDiv.textContent = connected ? `Connected ${message}` : `Disconnected ${message}`;
+        }
+        
+        function addEvent(type, data, className = '') {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${className}`;
+            eventDiv.innerHTML = `
+                <strong>[${new Date().toLocaleTimeString()}] ${type}:</strong><br>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            eventsDiv.appendChild(eventDiv);
+            eventsDiv.scrollTop = eventsDiv.scrollHeight;
+        }
+        
+        function connect() {
+            if (socket) {
+                socket.disconnect();
+            }
+            
+            // Connect to the WebSocket server
+            socket = io('http://localhost:3000/todos', {
+                withCredentials: true,
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                updateStatus(true, `(ID: ${socket.id})`);
+                addEvent('Connection', { id: socket.id, message: 'Connected to server' });
+            });
+            
+            socket.on('disconnect', () => {
+                updateStatus(false);
+                addEvent('Disconnection', { message: 'Disconnected from server' });
+            });
+            
+            socket.on('connect_error', (error) => {
+                updateStatus(false, `(Error: ${error.message})`);
+                addEvent('Connection Error', { error: error.message });
+            });
+            
+            // Todo events
+            socket.on('todoCreated', (data) => {
+                addEvent('Todo Created', data, 'todo-created');
+            });
+            
+            socket.on('todoUpdated', (data) => {
+                addEvent('Todo Updated', data, 'todo-updated');
+            });
+            
+            socket.on('todoDeleted', (data) => {
+                addEvent('Todo Deleted', data, 'todo-deleted');
+            });
+            
+            socket.on('todoBulkDeleted', (data) => {
+                addEvent('Todos Bulk Deleted', data, 'todo-deleted');
+            });
+            
+            socket.on('todoListUpdated', (data) => {
+                addEvent('Todo List Updated', data);
+            });
+            
+            // System events
+            socket.on('notification', (data) => {
+                addEvent('Notification', data);
+            });
+            
+            socket.on('error', (data) => {
+                addEvent('Error', data);
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+        
+        function joinTodoRoom() {
+            if (socket) {
+                socket.emit('joinTodoRoom');
+            }
+        }
+        
+        function leaveTodoRoom() {
+            if (socket) {
+                socket.emit('leaveTodoRoom');
+            }
+        }
+        
+        function getTodoList() {
+            if (socket) {
+                socket.emit('getTodoList', {});
+            }
+        }
+        
+        function pingServer() {
+            if (socket) {
+                socket.emit('ping');
+            }
+        }
+        
+        function clearEvents() {
+            eventsDiv.innerHTML = '';
+        }
+        
+        // API test functions
+        async function createTestTodo() {
+            try {
+                const response = await fetch('http://localhost:3000/api/todo-lists', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        task: `Test Todo ${Date.now()}`,
+                        developer: 'WebSocket Test Client',
+                        status: 'pending',
+                        priority: 'medium'
+                    })
+                });
+                const result = await response.json();
+                addEvent('API: Todo Created', result);
+            } catch (error) {
+                addEvent('API Error', { error: error.message });
+            }
+        }
+        
+        async function updateRandomTodo() {
+            try {
+                // Get todo list first
+                const listResponse = await fetch('http://localhost:3000/api/todo-lists');
+                const listResult = await listResponse.json();
+                
+                if (listResult.data && listResult.data.length > 0) {
+                    const randomTodo = listResult.data[Math.floor(Math.random() * listResult.data.length)];
+                    
+                    const response = await fetch(`http://localhost:3000/api/todo-lists/${randomTodo.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            task: `Updated Todo ${Date.now()}`,
+                            status: randomTodo.status_raw === 'pending' ? 'completed' : 'pending'
+                        })
+                    });
+                    const result = await response.json();
+                    addEvent('API: Todo Updated', result);
+                } else {
+                    addEvent('API Error', { error: 'No todos available to update' });
+                }
+            } catch (error) {
+                addEvent('API Error', { error: error.message });
+            }
+        }
+        
+        async function deleteRandomTodo() {
+            try {
+                // Get todo list first
+                const listResponse = await fetch('http://localhost:3000/api/todo-lists');
+                const listResult = await listResponse.json();
+                
+                if (listResult.data && listResult.data.length > 0) {
+                    const randomTodo = listResult.data[Math.floor(Math.random() * listResult.data.length)];
+                    
+                    const response = await fetch(`http://localhost:3000/api/todo-lists/${randomTodo.id}`, {
+                        method: 'DELETE'
+                    });
+                    const result = await response.json();
+                    addEvent('API: Todo Deleted', result);
+                } else {
+                    addEvent('API Error', { error: 'No todos available to delete' });
+                }
+            } catch (error) {
+                addEvent('API Error', { error: error.message });
+            }
+        }
+        
+        // Auto-connect on page load
+        window.onload = function() {
+            connect();
+        };
+    </script>
+</body>
+</html>

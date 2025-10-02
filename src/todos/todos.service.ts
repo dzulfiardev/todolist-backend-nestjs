@@ -6,10 +6,14 @@ import { TodoQueryDto } from './dto/todo-query.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
 import { TodoListHelper } from '../common/helpers/todo-list.helper';
 import { Status } from '../common/enums';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class TodosService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) { }
 
   async create(createTodoDto: CreateTodoDto) {
     try {
@@ -28,6 +32,9 @@ export class TodosService {
       const todo = await this.prisma.todoList.create({
         data,
       });
+
+      // Emit event for real-time updates
+      this.eventEmitter.emit('todo.created', todo);
 
       return {
         success: true,
@@ -161,6 +168,9 @@ export class TodosService {
         data: updateData,
       });
 
+      // Emit event for real-time updates
+      this.eventEmitter.emit('todo.updated', updatedTodo);
+
       return {
         success: true,
         message: 'Todo list updated successfully',
@@ -195,6 +205,9 @@ export class TodosService {
         where: { id },
       });
 
+      // Emit event for real-time updates
+      this.eventEmitter.emit('todo.deleted', { id, title: todo.title || undefined });
+
       return {
         success: true,
         message: 'Todo list deleted successfully',
@@ -228,6 +241,9 @@ export class TodosService {
           message: 'No todo lists found to delete',
         });
       }
+
+      // Emit event for real-time updates
+      this.eventEmitter.emit('todo.bulkDeleted', { ids: bulkDeleteDto.ids, count });
 
       return {
         success: true,
